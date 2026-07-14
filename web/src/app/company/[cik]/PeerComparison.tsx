@@ -150,6 +150,37 @@ export default function PeerComparison({ cik, companyName }: Props) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (loading) {
+      const t = setTimeout(() => {
+        setLoadingSeconds(0);
+      }, 0);
+      interval = setInterval(() => {
+        setLoadingSeconds((prev: number) => prev + 1);
+      }, 1000);
+      return () => {
+        clearTimeout(t);
+        if (interval) clearInterval(interval);
+      };
+    } else {
+      const t = setTimeout(() => {
+        setLoadingSeconds(0);
+      }, 0);
+      return () => {
+        clearTimeout(t);
+      };
+    }
+  }, [loading]);
+
+  const getProgressMessage = (seconds: number): string => {
+    if (seconds < 3) return "Connecting to FilingLens";
+    if (seconds < 7) return "Fetching SEC filing data";
+    if (seconds < 12) return "Calculating comparable metrics";
+    return "Still working on a large SEC dataset";
+  };
+
   // Selector controls
   const [selectedBarMetric, setSelectedBarMetric] = useState("revenue");
   const [selectedLineMetric, setSelectedLineMetric] = useState("revenue");
@@ -199,7 +230,7 @@ export default function PeerComparison({ cik, companyName }: Props) {
         if (active) {
           setData(res);
         }
-      } catch (err: unknown) {
+      } catch {
         if (active) {
           setError("Unable to load peer comparison. Please try again in a few moments.");
         }
@@ -306,18 +337,23 @@ export default function PeerComparison({ cik, companyName }: Props) {
       name: companyName,
       ticker: data.companies[0]?.ticker || "Base",
       isBase: true,
-      status: (loading && !data) ? "loading" : "loaded",
+      status: (loading && !data) ? ("loading" as const) : ("loaded" as const),
       companyData: data.companies[0] || null
     },
     ...peers.map((peer) => {
       const companyData = data.companies.find((c) => c.cik === peer.cik) || null;
-      const isPeerLoading = loading && !companyData;
+      let status: "loading" | "loaded" | "error" = "loaded";
+      if (!companyData && error) {
+        status = "error";
+      } else if (loading && !companyData) {
+        status = "loading";
+      }
       return {
         cik: peer.cik,
         name: peer.name,
         ticker: peer.ticker,
         isBase: false,
-        status: isPeerLoading ? "loading" : "loaded",
+        status,
         companyData
       };
     })
@@ -544,7 +580,7 @@ export default function PeerComparison({ cik, companyName }: Props) {
                 </div>
               </div>
             </div>
-          ) : error ? (
+          ) : (error && !data) ? (
             <div className="p-5 bg-red-50 border border-red-200 text-red-800 rounded-xl flex flex-col gap-4 text-xs animate-fadeIn">
               <div className="flex items-center gap-2 font-bold text-red-900 text-sm">
                 <AlertTriangle className="w-5 h-5 text-red-700" />
@@ -571,14 +607,29 @@ export default function PeerComparison({ cik, companyName }: Props) {
                         <th className="px-4 py-3">Formula / Concept</th>
                         {columns.map((col) => (
                           <th key={col.cik} className="px-4 py-3 text-right">
-                            <span className="font-bold text-zinc-900 block font-mono">{col.ticker}</span>
-                            <span className="text-[9px] text-zinc-400 font-normal truncate max-w-[120px] block mt-0.5">
-                              {col.isBase ? "Base Company" : col.name}
-                            </span>
-                            {col.status === "loading" && (
-                              <span className="text-[9px] text-blue-700 font-bold block mt-0.5 animate-pulse font-sans">
-                                Loading...
-                              </span>
+                            {col.isBase ? (
+                              <>
+                                <span className="font-bold text-zinc-900 block font-sans">{col.name}</span>
+                                <span className="text-[10px] text-zinc-400 font-normal block mt-0.5 font-mono">{col.ticker}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-bold text-zinc-950 block font-sans truncate max-w-[150px] ml-auto">{col.name}</span>
+                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                  <span className="text-[10px] text-zinc-400 font-normal">Peer company</span>
+                                  {col.status === "loading" ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-100 animate-pulse">
+                                      Loading...
+                                    </span>
+                                  ) : col.status === "error" ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-50 text-red-700 border border-red-100">
+                                      Error
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-zinc-400 font-mono">({col.ticker})</span>
+                                  )}
+                                </div>
+                              </>
                             )}
                           </th>
                         ))}
@@ -598,18 +649,70 @@ export default function PeerComparison({ cik, companyName }: Props) {
                                     <td
                                       key={col.cik}
                                       rowSpan={METRIC_ROWS.length}
-                                      className="px-4 py-8 text-center bg-zinc-50/40 border-l border-r border-zinc-105 align-middle select-none w-48 font-sans"
+                                      className="relative border-l border-r border-zinc-200 align-middle select-none w-48 font-sans p-0 overflow-hidden"
                                     >
-                                      <div className="flex flex-col items-center justify-center space-y-3">
-                                        <svg className="animate-spin h-5 w-5 text-blue-800" viewBox="0 0 24 24" fill="none">
+                                      {/* Shimmering Skeleton rows matching table heights */}
+                                      <div className="absolute inset-0 flex flex-col divide-y divide-zinc-150">
+                                        {METRIC_ROWS.map((_, idx) => (
+                                          <div key={idx} className="flex-1 flex items-center justify-center min-h-[38px] bg-zinc-50/15">
+                                            <div className="h-3 w-16 bg-zinc-200/50 animate-pulse rounded-md"></div>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      {/* Loading panel content overlay centered */}
+                                      <div className="relative z-10 py-16 flex flex-col items-center justify-center p-4 text-center space-y-4 bg-blue-50/90 backdrop-blur-[0.5px] h-full">
+                                        <svg className="animate-spin h-6 w-6 text-blue-800" viewBox="0 0 24 24" fill="none">
                                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                          <span className="sr-only">Loading comparison data</span>
                                         </svg>
-                                        <div className="space-y-1 text-left max-w-[165px] mx-auto leading-normal">
-                                          <p className="text-[10px] font-bold text-zinc-800">Loading {col.ticker}…</p>
-                                          <p className="text-[9px] text-zinc-500 font-medium">Fetching SEC filing…</p>
-                                          <p className="text-[9px] text-zinc-500 font-medium">Calculating comparable metrics…</p>
-                                          <p className="text-[8px] text-amber-600 font-semibold mt-1">This may take 5–15 seconds on the free server</p>
+                                        <div className="space-y-1">
+                                          <h4 className="text-xs font-bold text-zinc-900 leading-tight">{col.name}</h4>
+                                          <p className="text-[11px] text-blue-800 font-bold tracking-tight">Loading comparison...</p>
+                                        </div>
+                                        <p aria-live="polite" className="text-[10px] text-zinc-650 leading-normal max-w-[155px] mx-auto font-medium">
+                                          {getProgressMessage(loadingSeconds)}
+                                        </p>
+                                        <p className="text-[9px] text-zinc-400 font-medium">
+                                          This usually takes 5–15 seconds the first time.
+                                        </p>
+                                      </div>
+                                    </td>
+                                  );
+                              }
+                              return null;
+                            }
+
+                            if (col.status === "error") {
+                              if (rowIndex === 0) {
+                                  return (
+                                    <td
+                                      key={col.cik}
+                                      rowSpan={METRIC_ROWS.length}
+                                      className="px-4 py-12 text-center bg-red-50/20 border-l border-r border-red-150 align-middle select-none w-48 font-sans"
+                                    >
+                                      <div className="flex flex-col items-center justify-center p-4 text-center space-y-4 max-w-[160px] mx-auto">
+                                        <AlertTriangle className="w-6 h-6 text-red-700 shrink-0" />
+                                        <div className="space-y-1">
+                                          <h4 className="text-xs font-bold text-red-950">Unable to load peer data</h4>
+                                          <p className="text-[10px] text-red-750 font-semibold leading-normal">
+                                            We could not retrieve enough comparable SEC data for this company.
+                                          </p>
+                                        </div>
+                                        <div className="flex flex-col gap-2 w-full pt-2">
+                                          <button
+                                            onClick={() => setRetryTrigger((prev: number) => prev + 1)}
+                                            className="w-full px-3 py-1.5 bg-red-800 hover:bg-red-900 text-white rounded-lg text-[10px] font-bold transition-all focus:outline-none focus:ring-2 focus:ring-red-700 cursor-pointer active:scale-[0.98] shadow-xs"
+                                          >
+                                            Retry
+                                          </button>
+                                          <button
+                                            onClick={() => handleRemovePeer(col.cik)}
+                                            className="w-full px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-250 rounded-lg text-[10px] font-bold transition-all focus:outline-none focus:ring-2 focus:ring-zinc-400 cursor-pointer active:scale-[0.98]"
+                                          >
+                                            Remove peer
+                                          </button>
                                         </div>
                                       </div>
                                     </td>
