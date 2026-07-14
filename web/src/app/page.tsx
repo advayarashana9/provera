@@ -106,15 +106,193 @@ function ScrollReveal({ children, className = "", delay = 0 }: { children: React
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Search loading stage definitions
+// ─────────────────────────────────────────────────────────────────────────────
+interface SearchStage {
+  title: string;
+  subtitle: string;
+  showNote: boolean;
+}
+
+const SEARCH_STAGES: Array<{ afterMs: number } & SearchStage> = [
+  {
+    afterMs: 0,
+    title: "Searching SEC companies",
+    subtitle: "Looking for matching public companies and ticker symbols.",
+    showNote: false,
+  },
+  {
+    afterMs: 3000,
+    title: "Connecting to FilingLens",
+    subtitle: "The analysis server is starting and preparing your request.",
+    showNote: false,
+  },
+  {
+    afterMs: 8000,
+    title: "Waking up the analysis server",
+    subtitle: "The free server may need a few extra seconds after a period of inactivity.",
+    showNote: true,
+  },
+  {
+    afterMs: 20000,
+    title: "Still getting things ready",
+    subtitle: "Your request is still active. The first search is usually the slowest, and later searches should be much faster.",
+    showNote: true,
+  },
+];
+
+function useSearchStage(isLoading: boolean) {
+  const [stage, setStage] = useState<SearchStage | null>(null);
+  const startRef = useRef<number | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    // Clear previous timers
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+
+    if (!isLoading) {
+      // Defer to avoid synchronous setState-in-effect lint violation
+      const clearId = setTimeout(() => {
+        setStage(null);
+        startRef.current = null;
+      }, 0);
+      return () => clearTimeout(clearId);
+    }
+
+    startRef.current = Date.now();
+
+    // Schedule each stage transition
+    SEARCH_STAGES.forEach((s) => {
+      const id = setTimeout(
+        () => setStage({ title: s.title, subtitle: s.subtitle, showNote: s.showNote }),
+        s.afterMs
+      );
+      timersRef.current.push(id);
+    });
+
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    };
+  }, [isLoading]);
+
+  return stage;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SearchLoadingPanel component
+// ─────────────────────────────────────────────────────────────────────────────
+function SearchLoadingPanel({
+  stage,
+  onRetry,
+  searchError,
+}: {
+  stage: SearchStage | null;
+  onRetry: () => void;
+  searchError: string | null;
+}) {
+  const prefersReduced =
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : false;
+
+  if (searchError) {
+    return (
+      <div
+        role="alert"
+        aria-live="assertive"
+        className="mt-3 rounded-xl border border-blue-100 bg-blue-50/60 shadow-sm px-5 py-4 text-left"
+        style={{ backdropFilter: "blur(4px)" }}
+      >
+        <p className="text-sm font-semibold text-zinc-800">Unable to reach the analysis server</p>
+        <p className="text-xs text-zinc-500 mt-0.5 mb-3">Please try again in a few moments.</p>
+        <button
+          onClick={onRetry}
+          className="px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2"
+        >
+          Retry search
+        </button>
+      </div>
+    );
+  }
+
+  if (!stage) return null;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={`${stage.title}: ${stage.subtitle}`}
+      className="mt-3 rounded-xl border border-blue-100 bg-blue-50/50 shadow-sm px-5 py-4 text-left animate-search-panel"
+      style={{ backdropFilter: "blur(4px)" }}
+    >
+      <div className="flex items-start gap-3">
+        {/* Spinner */}
+        <div className="flex-shrink-0 mt-0.5" aria-hidden="true">
+          <svg
+            className={`h-4 w-4 text-blue-700 ${prefersReduced ? "" : "animate-spin"}`}
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <title>Loading</title>
+            <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+            <path
+              className="opacity-90"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+        </div>
+
+        {/* Text */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-zinc-800 leading-snug">{stage.title}</p>
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{stage.subtitle}</p>
+        </div>
+      </div>
+
+      {/* Indeterminate progress bar */}
+      <div
+        className="mt-3 h-0.5 w-full rounded-full bg-blue-100 overflow-hidden"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Loading in progress"
+      >
+        <div
+          className={`h-full bg-blue-400 rounded-full ${prefersReduced ? "w-1/2" : "animate-search-progress"}`}
+        />
+      </div>
+
+      {/* Informational note after 8 s */}
+      {stage.showNote && (
+        <p className="mt-3 text-[11px] leading-relaxed text-zinc-400 border-t border-blue-100 pt-2.5">
+          <span className="font-medium text-zinc-500">Why is this taking longer?</span>{" "}
+          FilingLens uses a free analysis server that may pause when inactive. It is waking up now,
+          and future requests should load faster.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Home() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CompanySearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isStickyHeader, setIsStickyHeader] = useState(false);
+
+  const searchStage = useSearchStage(isLoading);
 
   // Typewriter placeholder animation state
   const [placeholder, setPlaceholder] = useState("Search companies...");
@@ -225,12 +403,12 @@ export default function Home() {
     return () => clearTimeout(t);
   }, []);
 
-  // Debounced search logic (preventing race conditions and stale requests)
   useEffect(() => {
     if (!query.trim()) {
       const t = setTimeout(() => {
         setResults([]);
         setError(null);
+        setSearchError(null);
         setIsLoading(false);
         setIsDropdownOpen(false);
       }, 0);
@@ -239,24 +417,27 @@ export default function Home() {
 
     let active = true;
     const controller = new AbortController();
-    
-    // Trigger loading state immediately when query changes, deferred to prevent lint warning
+
+    // Trigger loading state immediately (deferred to prevent React lint warning)
     const tLoader = setTimeout(() => {
       if (active) {
         setIsLoading(true);
         setError(null);
+        setSearchError(null);
       }
     }, 0);
 
     const timer = setTimeout(async () => {
+      if (!active) return;
       try {
         const searchResults = await searchCompanies(query, controller.signal);
         if (active) {
           setResults(searchResults.slice(0, 8));
+          setSearchError(null);
         }
       } catch (err) {
         if (active && err instanceof Error && err.name !== "AbortError") {
-          setError(err.message || "Failed to retrieve search results.");
+          setSearchError(err.message || "Failed to retrieve search results.");
         }
       } finally {
         if (active) {
@@ -503,7 +684,8 @@ export default function Home() {
                   autoComplete="off"
                   spellCheck="false"
                 />
-                {isLoading && (
+                {/* In-box spinner shown only during very brief loads (before stage panel kicks in) */}
+                {isLoading && !searchStage && (
                   <div className="absolute right-6 top-1/2 -translate-y-1/2" aria-hidden="true">
                     <svg className="animate-spin h-5 w-5 text-zinc-400" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -514,22 +696,35 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Polished search loading / error panel — shown below the search field */}
+            {(searchStage || searchError) && (
+              <SearchLoadingPanel
+                stage={searchStage}
+                searchError={searchError}
+                onRetry={() => {
+                  setSearchError(null);
+                  setIsLoading(true);
+                  const controller = new AbortController();
+                  searchCompanies(query, controller.signal)
+                    .then((r) => { setResults(r.slice(0, 8)); setSearchError(null); })
+                    .catch((err) => {
+                      if (err instanceof Error && err.name !== "AbortError") {
+                        setSearchError(err.message || "Failed to retrieve search results.");
+                      }
+                    })
+                    .finally(() => setIsLoading(false));
+                }}
+              />
+            )}
+
             {/* AutocompleteDropdown overlay */}
-            {isDropdownOpen && (results.length > 0 || error || (!isLoading && query.trim() !== "")) && (
+            {isDropdownOpen && !isLoading && (results.length > 0 || error || (!isLoading && query.trim() !== "")) && (
               <ul
                 id="search-results-list"
                 className="absolute z-50 left-0 right-0 mt-2 w-full rounded-xl border border-zinc-200 bg-white shadow-xl divide-y divide-zinc-100 overflow-hidden text-left animate-autocomplete-dropdown max-h-64 overflow-y-auto"
                 role="listbox"
               >
-                {isLoading ? (
-                  <li className="px-4 py-4 text-xs text-zinc-450 flex items-center gap-2 font-medium bg-zinc-50/10">
-                    <svg className="animate-spin h-4 w-4 text-zinc-450" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Searching SEC companies…</span>
-                  </li>
-                ) : error ? (
+                {error ? (
                   <li className="px-4 py-3.5 text-xs text-red-600 bg-red-50">
                     {error}
                   </li>
