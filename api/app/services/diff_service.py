@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+import time
 import difflib
 import math
 from datetime import datetime
@@ -186,6 +187,7 @@ class FilingDiffService:
         """
         Main engine to generate filing diffs.
         """
+        diff_start_time = time.time()
         if request.older_accession_number == request.newer_accession_number:
             from fastapi import HTTPException
             raise HTTPException(
@@ -646,6 +648,9 @@ Input takeaways:
                         key_takeaways = [t.strip() for t in data.takeaways if t.strip()][:5]
                 except Exception as e:
                     logger.error(f"Failed to improve takeaways with Gemini: {e}")
+
+        diff_duration = time.time() - diff_start_time
+        logger.info(f"[TIMING] Filing diff for CIK {cik} took {diff_duration:.4f}s")
 
         return FilingDiffResponse(
             cik=cik,

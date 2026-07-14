@@ -1,9 +1,13 @@
 from typing import List, Optional, Tuple, Dict
 import httpx
+import time
+import logging
 from app.services.sec_client import SECClient
 from app.services.fact_normalizer import FactNormalizerService
 from app.models.financial_fact import NormalizedFinancialFact
 from app.models.verification import VerificationEvidence, VerificationFinding, VerificationSummary
+
+logger = logging.getLogger(__name__)
 
 class VerificationEngine:
     def __init__(self, sec_client: Optional[SECClient] = None):
@@ -117,6 +121,8 @@ class VerificationEngine:
         facts_res = await self.fact_normalizer.get_company_facts(cik, forms=target_forms, limit=5000)
         company_name = facts_res.company_name
         all_facts = facts_res.facts
+
+        ver_start_time = time.time()
 
         # Extract unique end dates, newest first
         end_dates = sorted(list({f.end_date for f in all_facts}), reverse=True)
@@ -481,6 +487,9 @@ class VerificationEngine:
         severity_rank = {"high": 0, "medium": 1, "low": 2}
         findings.sort(key=lambda f: severity_rank.get(f.severity, 3))
         findings.sort(key=lambda f: f.period_end, reverse=True)
+
+        ver_duration = time.time() - ver_start_time
+        logger.info(f"[TIMING] Verification checks for CIK {cik} took {ver_duration:.4f}s")
 
         return VerificationSummary(
             cik=cik,

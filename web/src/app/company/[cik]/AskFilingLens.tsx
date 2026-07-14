@@ -27,11 +27,28 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [lastQuery, setLastQuery] = useState("");
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
+
   const [expandedSources, setExpandedSources] = useState<{ [key: number]: boolean }>({});
   const [showAllSourcesMap, setShowAllSourcesMap] = useState<{ [key: number]: boolean }>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isLoading) {
+      setLoadingSeconds(0);
+      interval = setInterval(() => {
+        setLoadingSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setLoadingSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isLoading]);
 
   useEffect(() => {
     if (messages.length > 1 || isLoading) {
@@ -75,6 +92,7 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
 
     setError(null);
     setInput("");
+    setLastQuery(textToSend);
     setIsLoading(true);
 
     const userMessage: Message = { role: "user", content: textToSend };
@@ -95,8 +113,7 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
     } catch (err: unknown) {
       console.error("Chat error:", err);
       if (!isMounted.current) return;
-      const errMsg = err instanceof Error ? err.message : "Failed to retrieve response from assistant.";
-      setError(errMsg);
+      setError("The SEC filing is temporarily unavailable.");
     } finally {
       if (isMounted.current) {
         setIsLoading(false);
@@ -438,24 +455,38 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
         {/* Loading Indicator */}
         {isLoading && (
           <div className="flex flex-col items-start animate-fadeIn">
-            <div className="bg-white border border-zinc-200 rounded-xl p-4 shadow-xs text-zinc-400 flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 bg-zinc-400 rounded-full animate-bounce"></span>
-              <span className="h-1.5 w-1.5 bg-zinc-400 rounded-full animate-bounce delay-100"></span>
-              <span className="h-1.5 w-1.5 bg-zinc-400 rounded-full animate-bounce delay-200"></span>
+            <div className="bg-white border border-zinc-200 rounded-xl p-4 shadow-xs text-zinc-650 flex flex-col space-y-2 max-w-[90%]">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 bg-blue-800 rounded-full animate-bounce shrink-0"></span>
+                <span className="h-1.5 w-1.5 bg-blue-800 rounded-full animate-bounce delay-100 shrink-0"></span>
+                <span className="h-1.5 w-1.5 bg-blue-800 rounded-full animate-bounce delay-200 shrink-0"></span>
+                <span className="text-xs font-semibold text-zinc-500">
+                  FilingLens is analyzing the filing…
+                </span>
+              </div>
+              {loadingSeconds >= 15 ? (
+                <p className="text-[10px] text-amber-600 font-semibold italic animate-fade-in-up">
+                  Still analyzing. Large filings can take up to 20 seconds to process
+                </p>
+              ) : loadingSeconds >= 5 ? (
+                <p className="text-[10px] text-zinc-400 font-semibold italic animate-fade-in-up">
+                  This may take a little longer on free servers
+                </p>
+              ) : null}
             </div>
           </div>
         )}
 
         {/* Error panel */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded p-3.5 shadow-sm space-y-1.5">
-            <div className="font-bold flex items-center gap-1">
-              ⚠️ Failed to retrieve filing facts
+          <div className="bg-red-50 border border-red-200 text-red-750 text-xs rounded-xl p-4 shadow-sm space-y-3 max-w-[90%] animate-fadeIn">
+            <div className="font-bold flex items-center gap-1.5 text-red-900 text-xs uppercase tracking-wider">
+              ⚠️ The SEC filing is temporarily unavailable.
             </div>
-            <p className="font-normal text-red-600 leading-relaxed">{error}</p>
+            <p className="font-medium text-red-700 leading-relaxed">Please try again in a few moments.</p>
             <button
-              onClick={() => handleSubmit()}
-              className="text-[10px] font-bold text-red-800 hover:text-red-900 hover:underline"
+              onClick={() => handleSubmit(undefined, lastQuery)}
+              className="px-3 py-1.5 bg-red-800 hover:bg-red-900 text-white rounded-lg text-[10px] font-bold transition-all focus:outline-none focus:ring-2 focus:ring-red-700 cursor-pointer active:scale-[0.98] w-fit shadow-xs"
             >
               Retry last question
             </button>
@@ -498,9 +529,9 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="h-9 px-4 bg-blue-800 hover:bg-blue-700 disabled:bg-zinc-100 text-white disabled:text-zinc-400 font-semibold rounded-lg text-xs transition-all active:scale-[0.98] shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 flex items-center justify-center"
+          className="h-9 px-4 bg-blue-800 hover:bg-blue-700 disabled:bg-zinc-100 text-white disabled:text-zinc-400 font-semibold rounded-lg text-xs transition-all active:scale-[0.98] shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 flex items-center justify-center min-w-[70px]"
         >
-          Send
+          {isLoading ? "Sending…" : "Send"}
         </button>
       </form>
     </div>

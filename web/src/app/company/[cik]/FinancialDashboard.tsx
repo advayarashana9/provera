@@ -6,6 +6,7 @@ import {
   FinancialDashboardResponse,
   DashboardSeriesPoint
 } from "../../../lib/api";
+import { useSWR } from "@/lib/useSWR";
 import ResearchReportModal from "./ResearchReportModal";
 import InvestmentMemoModal from "./InvestmentMemoModal";
 import SourceEvidenceModal, { metricsToEvidence, seriesPointsToEvidence, EvidenceItem } from "./SourceEvidenceModal";
@@ -179,9 +180,6 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 };
 
 export default function FinancialDashboard({ cik }: Props) {
-  const [data, setData] = useState<FinancialDashboardResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [periods, setPeriods] = useState<number>(8);
   const [viewType, setViewType] = useState<"quarterly" | "annual">("quarterly");
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -189,60 +187,124 @@ export default function FinancialDashboard({ cik }: Props) {
   const [evidenceModal, setEvidenceModal] = useState<{ open: boolean; title: string; items: EvidenceItem[]; context?: string }>({
     open: false, title: "", items: [], context: undefined,
   });
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const openEvidenceModal = (title: string, items: EvidenceItem[], context?: string) => {
     setEvidenceModal({ open: true, title, items, context });
   };
   const closeEvidenceModal = () => setEvidenceModal((prev) => ({ ...prev, open: false }));
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await getFinancialDashboard(cik, "10-K,10-Q", periods);
-        if (active) {
-          setData(res);
-        }
-      } catch (err: unknown) {
-        if (active) {
-          setError((err as Error).message || "Failed to load financial dashboard");
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-    load();
-    return () => {
-      active = false;
-    };
-  }, [cik, periods]);
+  const fetcher = React.useCallback(() => getFinancialDashboard(cik, "10-K,10-Q", periods), [cik, periods]);
+  const { data, error, isValidating } = useSWR(`dashboard_${cik}_${periods}_${retryTrigger}`, fetcher);
 
-  if (loading) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (data || error) {
+      setSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setSeconds((s: number) => s + 0.5);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [data, error]);
+
+  const getProgressLabel = () => {
+    if (seconds < 1.0) return "Connecting to FilingLens";
+    if (seconds < 2.5) return "Fetching SEC filing data";
+    if (seconds < 4.0) return "Normalizing financial facts";
+    if (seconds < 5.0) return "Calculating metrics and ratios";
+    return "Preparing charts";
+  };
+
+  if (!data && !error) {
+    const pct = Math.min(95, Math.round((seconds / 6) * 100));
     return (
       <div className="bg-white border border-zinc-200 rounded-xl p-6 mb-8 space-y-6">
-        <div className="h-8 shimmer-bg rounded w-1/4"></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-32 shimmer-bg rounded-lg"></div>
-          <div className="h-32 shimmer-bg rounded-lg"></div>
-          <div className="h-32 shimmer-bg rounded-lg"></div>
+        {/* Centered Loading Panel */}
+        <div className="flex flex-col items-center justify-center py-8 space-y-4 max-w-sm mx-auto">
+          <div className="flex items-center gap-3">
+            <svg className="animate-spin h-5 w-5 text-blue-800" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <span className="text-sm font-semibold text-zinc-800 font-sans tracking-tight">
+              {getProgressLabel()}…
+            </span>
+          </div>
+
+          <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className="bg-blue-800 h-1.5 rounded-full transition-all duration-300"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+
+          <div className="text-center min-h-[16px]">
+            {seconds >= 15.0 ? (
+              <p className="text-[11px] text-amber-600 font-medium font-sans">
+                Still working. Large SEC datasets can take longer on the free server.
+              </p>
+            ) : seconds >= 5.0 ? (
+              <p className="text-[11px] text-zinc-500 font-medium font-sans">
+                Free servers may take a few extra seconds to wake up
+              </p>
+            ) : null}
+          </div>
         </div>
-        <div className="h-64 shimmer-bg rounded-lg"></div>
+
+        {/* Dashboard Metric Card Skeletons */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-pulse">
+          <div className="border border-zinc-200 rounded-xl p-5 bg-white space-y-4">
+            <div className="h-3 w-1/3 shimmer-bg rounded"></div>
+            <div className="h-8 w-2/3 shimmer-bg rounded"></div>
+            <div className="h-4 w-1/2 shimmer-bg rounded pt-2"></div>
+          </div>
+          <div className="border border-zinc-200 rounded-xl p-5 bg-white space-y-4">
+            <div className="h-3 w-1/4 shimmer-bg rounded"></div>
+            <div className="h-8 w-1/2 shimmer-bg rounded"></div>
+            <div className="h-4 w-2/3 shimmer-bg rounded pt-2"></div>
+          </div>
+          <div className="border border-zinc-200 rounded-xl p-5 bg-white space-y-4">
+            <div className="h-3 w-1/3 shimmer-bg rounded"></div>
+            <div className="h-8 w-3/4 shimmer-bg rounded"></div>
+            <div className="h-4 w-1/2 shimmer-bg rounded pt-2"></div>
+          </div>
+        </div>
+
+        {/* Chart Skeletons */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+          <div className="border border-zinc-150 rounded-xl p-4 bg-zinc-50/30 h-64 flex flex-col justify-between">
+            <div className="h-4 w-1/4 shimmer-bg rounded"></div>
+            <div className="flex-1 flex items-center justify-center text-xs text-zinc-400 font-medium">
+              Chart loading...
+            </div>
+          </div>
+          <div className="border border-zinc-150 rounded-xl p-4 bg-zinc-50/30 h-64 flex flex-col justify-between">
+            <div className="h-4 w-1/4 shimmer-bg rounded"></div>
+            <div className="flex-1 flex items-center justify-center text-xs text-zinc-400 font-medium">
+              Chart loading...
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-6 mb-8 space-y-2">
-        <div className="flex items-center gap-2 font-bold text-red-900">
-          <AlertTriangle className="w-5 h-5" />
-          <span>Error Loading Financial Dashboard</span>
+      <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-6 mb-8 flex flex-col gap-4 animate-fadeIn">
+        <div className="flex items-center gap-2 font-bold text-red-900 text-sm">
+          <AlertTriangle className="w-5 h-5 text-red-700" />
+          <span>Unable to load SEC data.</span>
         </div>
-        <p className="text-sm">{error || "No data was returned from the server."}</p>
+        <p className="text-xs text-red-700 leading-normal font-medium">Please try again in a few moments.</p>
+        <button
+          onClick={() => setRetryTrigger(prev => prev + 1)}
+          className="px-4 py-2 bg-red-800 hover:bg-red-900 text-white rounded-lg text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-red-700 w-fit cursor-pointer active:scale-[0.98] shadow-xs"
+        >
+          Retry Dashboard Load
+        </button>
       </div>
     );
   }
@@ -355,7 +417,14 @@ export default function FinancialDashboard({ cik }: Props) {
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 pb-5 mb-6">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-zinc-900 font-serif">Financial Dashboard</h2>
+          <div className="flex items-center flex-wrap gap-2">
+            <h2 className="text-xl font-bold tracking-tight text-zinc-900 font-serif">Financial Dashboard</h2>
+            {isValidating && (
+              <span className="text-[10px] uppercase font-bold tracking-wider text-blue-800 animate-pulse bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5">
+                Refreshing…
+              </span>
+            )}
+          </div>
           <p className="text-sm text-zinc-500 mt-1 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
             <span>Latest Period: <span className="font-semibold text-zinc-700">{formatDate(data.latest_period_end)}</span></span>

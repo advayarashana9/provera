@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List
 import httpx
+import asyncio
+import time
+import logging
 from app.services.sec_client import SECClient
 from app.services.company_search import CompanySearchService
 from app.services.company_profile import CompanyProfileService
@@ -12,6 +15,9 @@ from app.models.financial_fact import CompanyFactsResponse, ConceptFactsResponse
 from app.models.verification import VerificationSummary, VerificationFinding
 from app.services.explanation_service import GeminiExplanation
 from app.models.research_report import AIResearchReport, ResearchReportRequest
+from app.services.cache_service import cache_service
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
@@ -28,8 +34,10 @@ async def search(q: str, limit: int = Query(default=10, ge=1, le=25)):
     """
     if not q or not q.strip():
         raise HTTPException(status_code=400, detail="Query cannot be blank")
+    async def _fetch():
+        return await search_service.search(q, limit)
     try:
-        results = await search_service.search(q, limit)
+        results = await cache_service.get_or_set(f"search_{q}_{limit}", 86400, _fetch)
         return {
             "query": q,
             "results": results
@@ -52,8 +60,10 @@ async def get_overview(cik: int):
     """
     Get normalized company overview details for a given CIK.
     """
-    try:
+    async def _fetch():
         return await profile_service.get_overview(cik)
+    try:
+        return await cache_service.get_or_set(f"overview_{cik}", 1800, _fetch)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,
@@ -74,9 +84,12 @@ async def get_recent_filings(
     """
     Get recent filings for a company, with optional form filtering and limit capping.
     """
-    try:
-        form_list = [f.strip() for f in forms.split(",")] if forms else None
+    form_list = [f.strip() for f in forms.split(",")] if forms else None
+    async def _fetch():
         return await profile_service.get_recent_filings(cik, forms=form_list, limit=limit)
+    try:
+        key = f"filings_{cik}_{forms}_{limit}"
+        return await cache_service.get_or_set(key, 900, _fetch)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,
@@ -99,13 +112,16 @@ async def get_normalized_facts(
     """
     Get normalized and filtered financial facts for a given company.
     """
-    try:
-        form_list = [f.strip() for f in forms.split(",")] if forms else None
-        unit_list = [u.strip() for u in units.split(",")] if units else None
-        concept_list = [c.strip() for c in concepts.split(",")] if concepts else None
+    form_list = [f.strip() for f in forms.split(",")] if forms else None
+    unit_list = [u.strip() for u in units.split(",")] if units else None
+    concept_list = [c.strip() for c in concepts.split(",")] if concepts else None
+    async def _fetch():
         return await fact_service.get_company_facts(
             cik, forms=form_list, units=unit_list, concepts=concept_list, limit=limit
         )
+    try:
+        key = f"norm_facts_{cik}_{forms}_{units}_{concepts}_{limit}"
+        return await cache_service.get_or_set(key, 1800, _fetch)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,
@@ -128,11 +144,14 @@ async def get_concept_facts(
     """
     Get normalized and filtered facts for a specific namespace and concept.
     """
-    try:
-        form_list = [f.strip() for f in forms.split(",")] if forms else None
+    form_list = [f.strip() for f in forms.split(",")] if forms else None
+    async def _fetch():
         return await fact_service.get_concept_facts(
             cik, namespace=namespace, concept=concept, forms=form_list, limit=limit
         )
+    try:
+        key = f"concept_facts_{cik}_{namespace}_{concept}_{forms}_{limit}"
+        return await cache_service.get_or_set(key, 1800, _fetch)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,
@@ -153,11 +172,14 @@ async def verify_company(
     """
     Run deterministic financial verification checks on a company's SEC facts.
     """
-    try:
-        form_list = [f.strip() for f in forms.split(",")] if forms else ["10-K", "10-Q"]
+    form_list = [f.strip() for f in forms.split(",")] if forms else ["10-K", "10-Q"]
+    async def _fetch():
         return await verification_engine.verify_company(
             cik, forms=form_list, limit_periods=limit_periods
         )
+    try:
+        key = f"verify_{cik}_{forms}_{limit_periods}"
+        return await cache_service.get_or_set(key, 1800, _fetch)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,
@@ -282,10 +304,12 @@ async def compare_company_filings(cik: int, payload: FilingDiffRequest):
     """
     from app.services.diff_service import FilingDiffService
 
-    try:
+    async def _fetch():
         diff_service = FilingDiffService()
-        result = await diff_service.compare_filings(cik, payload)
-        return result
+        return await diff_service.compare_filings(cik, payload)
+    try:
+        key = f"diff_{cik}_{payload.older_accession_number}_{payload.newer_accession_number}"
+        return await cache_service.get_or_set(key, 1800, _fetch)
     except HTTPException:
         raise
     except Exception as e:
@@ -309,8 +333,8 @@ async def get_financial_dashboard(
     """
     from app.services.dashboard_service import FinancialDashboardService
 
-    try:
-        form_list = [f.strip() for f in forms.split(",")] if forms else ["10-K", "10-Q"]
+    form_list = [f.strip() for f in forms.split(",")] if forms else ["10-K", "10-Q"]
+    async def _fetch():
         service = FinancialDashboardService(sec_client=sec_client)
         result = await service.get_dashboard(cik, forms=form_list, periods=periods)
         try:
@@ -319,6 +343,9 @@ async def get_financial_dashboard(
         except Exception:
             pass
         return result
+    try:
+        key = f"dash_{cik}_{forms}_{periods}"
+        return await cache_service.get_or_set(key, 1800, _fetch)
     except HTTPException:
         raise
     except Exception as e:
@@ -407,7 +434,7 @@ async def get_peer_comparison(
     import logging
     logger = logging.getLogger(__name__)
 
-    try:
+    async def _fetch_peer_comparison():
         dashboard_service = FinancialDashboardService(sec_client=sec_client)
         
         # 1. Fetch base company dashboard
@@ -420,25 +447,43 @@ async def get_peer_comparison(
 
         companies = [base_dashboard]
 
-        # 2. Fetch peer companies dashboards
+        # 2. Fetch peer companies dashboards in parallel safely
         if peers:
             peer_ciks = [int(p.strip()) for p in peers.split(",") if p.strip()]
-            for p_cik in peer_ciks[:3]: # Cap at 3 peer companies
-                try:
-                    peer_dash = await dashboard_service.get_dashboard(p_cik, periods=periods)
+            sem = asyncio.Semaphore(2)
+
+            async def _fetch_peer(p_cik: int):
+                async with sem:
                     try:
-                        p_overview = await profile_service.get_overview(p_cik)
-                        peer_dash.ticker = p_overview.tickers[0] if p_overview.tickers else None
-                    except Exception:
-                        pass
-                    companies.append(peer_dash)
-                except Exception as ex:
-                    logger.warning(f"Failed to fetch peer CIK {p_cik} for comparison: {ex}")
+                        peer_dash = await dashboard_service.get_dashboard(p_cik, periods=periods)
+                        try:
+                            p_overview = await profile_service.get_overview(p_cik)
+                            peer_dash.ticker = p_overview.tickers[0] if p_overview.tickers else None
+                        except Exception:
+                            pass
+                        return peer_dash
+                    except Exception as ex:
+                        logger.warning(f"Failed to fetch peer CIK {p_cik} for comparison: {ex}")
+                        return None
+
+            tasks = [_fetch_peer(p_cik) for p_cik in peer_ciks[:3]]
+            results = await asyncio.gather(*tasks)
+            for res in results:
+                if res is not None:
+                    companies.append(res)
 
         return PeerComparisonResponse(
             base_cik=cik,
             companies=companies
         )
+
+    try:
+        key = f"peer_comp_{cik}_{peers}_{periods}"
+        start_time = time.time()
+        res = await cache_service.get_or_set(key, 1800, _fetch_peer_comparison)
+        duration = time.time() - start_time
+        logger.info(f"[TIMING] Peer-comparison for CIK {cik} took {duration:.4f}s")
+        return res
     except HTTPException:
         raise
     except Exception as e:

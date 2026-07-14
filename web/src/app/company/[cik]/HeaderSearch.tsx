@@ -104,7 +104,7 @@ export default function HeaderSearch() {
           }}
           aria-autocomplete="list"
           aria-controls="header-search-results"
-          aria-expanded={isDropdownOpen && results.length > 0}
+          aria-expanded={isDropdownOpen && (results.length > 0 || isLoading)}
           autoComplete="off"
           spellCheck="false"
         />
@@ -118,39 +118,53 @@ export default function HeaderSearch() {
         )}
       </div>
 
-      {isDropdownOpen && results.length > 0 && (
+      {isDropdownOpen && (results.length > 0 || isLoading) && (
         <ul
           id="header-search-results"
-          className="absolute right-0 z-20 mt-1 w-64 rounded border border-zinc-200 bg-white shadow-lg divide-y divide-zinc-100 overflow-hidden"
+          className="absolute right-0 z-20 mt-1 w-64 rounded border border-zinc-200 bg-white shadow-lg divide-y divide-zinc-100 overflow-hidden text-left"
           role="listbox"
         >
-          {results.map((comp, idx) => (
-            <li
-              key={comp.cik}
-              role="option"
-              aria-selected={focusedIndex === idx}
-              className={`focus:outline-none ${focusedIndex === idx ? "bg-zinc-50" : ""}`}
-            >
-              <Link
-                href={`/company/${comp.cik}`}
-                className="block px-3 py-2 hover:bg-zinc-50 transition-colors flex items-center justify-between text-xs"
-                onClick={() => {
-                  setQuery("");
-                  setIsDropdownOpen(false);
-                }}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <span className="font-mono font-bold text-[10px] bg-zinc-100 text-zinc-700 px-1.5 py-0.5 rounded shrink-0">
-                    {comp.ticker}
-                  </span>
-                  <span className="font-medium text-zinc-900 truncate">{comp.name}</span>
-                </div>
-                <span className="text-[10px] text-zinc-400 font-mono shrink-0 ml-1">
-                  {formatCIK(comp.cik)}
-                </span>
-              </Link>
+          {isLoading && results.length === 0 ? (
+            <li className="px-3 py-2 text-[11px] text-zinc-500 flex items-center gap-2 bg-zinc-50/50">
+              <svg className="animate-spin h-3.5 w-3.5 text-zinc-450" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Searching SEC companies…</span>
             </li>
-          ))}
+          ) : results.length === 0 ? (
+            <li className="px-3 py-3 text-center text-[11px] text-zinc-400 font-medium">
+              No companies found
+            </li>
+          ) : (
+            results.map((comp, idx) => (
+              <li
+                key={comp.cik}
+                role="option"
+                aria-selected={focusedIndex === idx}
+                className={`focus:outline-none ${focusedIndex === idx ? "bg-zinc-50" : ""}`}
+              >
+                <Link
+                  href={`/company/${comp.cik}`}
+                  className="block px-3 py-2 hover:bg-zinc-50 transition-colors flex items-center justify-between text-xs"
+                  onClick={() => {
+                    setQuery("");
+                    setIsDropdownOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="font-mono font-bold text-[10px] bg-zinc-100 text-zinc-700 px-1.5 py-0.5 rounded shrink-0">
+                      {comp.ticker}
+                    </span>
+                    <span className="font-medium text-zinc-900 truncate">{comp.name}</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 font-mono shrink-0 ml-1">
+                    {formatCIK(comp.cik)}
+                  </span>
+                </Link>
+              </li>
+            ))
+          )}
         </ul>
       )}
     </div>

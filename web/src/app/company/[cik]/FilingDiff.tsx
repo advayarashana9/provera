@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FilingSummary, compareFilings, FilingDiffResponse, getRecentFilings } from "@/lib/api";
 import { formatPercent, formatDate } from "@/lib/format";
 
@@ -117,6 +117,24 @@ export default function FilingDiff({ cik }: FilingDiffProps) {
     olderAccession, newerAccession,
     isLoading, error, diffResult, expandedSection, showAllMetrics,
   } = state;
+
+  const [diffSeconds, setDiffSeconds] = useState(0);
+  useEffect(() => {
+    if (!isLoading) {
+      setDiffSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setDiffSeconds((s: number) => s + 0.5);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  const getDiffLabel = () => {
+    if (diffSeconds < 1.0) return "Fetching filings...";
+    if (diffSeconds < 2.5) return "Comparing financial facts...";
+    return "Comparing narrative sections...";
+  };
 
   // Track current CIK so that in-flight fetches from a previous CIK are ignored.
   const currentCikRef = useRef(cik);
@@ -328,7 +346,7 @@ export default function FilingDiff({ cik }: FilingDiffProps) {
               disabled={isLoading || !olderAccession || !newerAccession || normAcc(olderAccession) === normAcc(newerAccession)}
               className="w-full px-4 py-2 bg-blue-800 hover:bg-blue-700 disabled:bg-zinc-100 text-white disabled:text-zinc-400 font-semibold rounded-lg text-sm transition-all active:scale-[0.98] shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
             >
-              {isLoading ? "Comparing..." : "Compare"}
+              {isLoading ? getDiffLabel() : "Compare"}
             </button>
           </div>
         </form>
@@ -336,18 +354,48 @@ export default function FilingDiff({ cik }: FilingDiffProps) {
 
         {/* Error panel */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded p-4 shadow-sm">
-            <div className="font-bold flex items-center gap-1">⚠️ Validation Warning</div>
-            <p className="font-normal text-red-600 mt-1">{error}</p>
+          <div className="bg-red-50 border border-red-200 text-red-750 text-xs rounded-xl p-4 shadow-sm space-y-3 flex flex-col animate-fadeIn">
+            <div className="font-bold flex items-center gap-1 text-red-900 text-xs uppercase tracking-wider">⚠️ validation failed</div>
+            <p className="font-semibold text-red-700 mt-1 leading-normal">{error}</p>
+            <button
+              onClick={handleCompare}
+              className="px-3 py-1.5 bg-red-800 hover:bg-red-900 text-white rounded-lg text-[10px] font-bold transition-all focus:outline-none focus:ring-2 focus:ring-red-700 w-fit cursor-pointer active:scale-[0.98] shadow-xs"
+            >
+              Retry Comparison
+            </button>
           </div>
         )}
 
         {/* Loading state */}
         {isLoading && (
-          <div className="space-y-4 py-8">
-            <div className="h-4 shimmer-bg rounded w-1/3"></div>
-            <div className="h-20 shimmer-bg rounded"></div>
-            <div className="h-12 shimmer-bg rounded"></div>
+          <div className="space-y-6 py-6 animate-pulse">
+            {/* Spinner + Loading comparison... */}
+            <div className="flex flex-col items-center justify-center py-6 space-y-3">
+              <svg className="animate-spin h-6 w-6 text-blue-800" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <div className="text-center space-y-1">
+                <h4 className="text-xs font-bold text-zinc-900 font-serif">Loading comparison…</h4>
+                <p className="text-[10px] text-zinc-500 font-sans">Calculating text similarities and metric differentials…</p>
+              </div>
+            </div>
+
+            {/* Changed metrics list skeleton */}
+            <div className="space-y-3">
+              <div className="h-4 w-1/4 shimmer-bg rounded"></div>
+              <div className="border border-zinc-200 rounded-lg bg-white divide-y divide-zinc-100 overflow-hidden">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-3.5 flex items-center justify-between">
+                    <div className="space-y-1 w-1/3">
+                      <div className="h-4 w-2/3 shimmer-bg rounded"></div>
+                      <div className="h-3 w-1/2 shimmer-bg rounded"></div>
+                    </div>
+                    <div className="h-4 w-16 shimmer-bg rounded"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

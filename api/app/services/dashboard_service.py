@@ -1,5 +1,6 @@
 import logging
 import math
+import time
 from datetime import datetime
 from typing import List, Optional, Dict, Tuple
 from fastapi import HTTPException
@@ -266,6 +267,8 @@ class FinancialDashboardService:
         facts_res = await self.fact_normalizer.get_company_facts(cik, forms=target_forms, limit=5000)
         all_facts = facts_res.facts
         company_name = facts_res.company_name
+
+        calc_start_time = time.time()
 
         # Select latest periods to report
         target_filings = recent_filings[:periods]
@@ -907,6 +910,9 @@ class FinancialDashboardService:
             warnings.append("No financial facts available for this company.")
         if roa_val is None:
             warnings.append("Annual Return on Assets is unavailable due to missing or incompatible historical 10-K filings.")
+
+        calc_duration = time.time() - calc_start_time
+        logger.info(f"[TIMING] Dashboard calculation for CIK {cik} took {calc_duration:.4f}s")
 
         return FinancialDashboardResponse(
             cik=cik,

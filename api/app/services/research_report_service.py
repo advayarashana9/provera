@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import math
+import asyncio
 from typing import Optional, List, Dict, Any
 from google import genai
 from google.genai import types
@@ -71,47 +72,74 @@ class AIResearchReportService:
         return self.client is not None
 
     async def generate_report(self, cik: int, periods: int = 4) -> AIResearchReport:
-        # 1. Fetch overview (company name, ticker, state, etc.)
-        overview = await self.profile_service.get_overview(cik)
+        # Helper to fetch verification filings in parallel
+        async def _fetch_ver():
+            try:
+                sec_client = getattr(self.profile_service, "sec_client", None) or getattr(self.dashboard_service, "sec_client", None)
+                if sec_client:
+                    from app.services.verification_engine import VerificationEngine
+                    engine = VerificationEngine(sec_client=sec_client)
+                    res = await engine.verify_company(cik)
+                    
+                    class MockVerRes:
+                        def __init__(self, passed_cnt, failed_findings):
+                            self.equations_passed = [None] * passed_cnt
+                            self.equations_failed = failed_findings
+                    
+                    # Convert verification engine findings to what the report layout details expects
+                    # The report layout expects eq.equation_title, eq.period_end, eq.expected_value, eq.reported_value
+                    class MockEq:
+                        def __init__(self, f):
+                            self.equation_title = f.title
+                            self.period_end = f.period_end
+                            self.expected_value = f.expected_value
+                            self.reported_value = f.reported_value
+                    
+                    failed_eqs = [MockEq(f) for f in res.findings if f.status == "confirmed_inconsistency"]
+                    return MockVerRes(res.checks_passed, failed_eqs)
+            except Exception as e:
+                logger.warning(f"Could not load verification for CIK {cik} report: {e}")
+            return None
+
+        # 1. Fetch overview, dashboard, filings, and verification in parallel
+        overview_task = self.profile_service.get_overview(cik)
+        dashboard_task = self.dashboard_service.get_dashboard(cik, periods=periods)
+        recent_filings_task = self.profile_service.get_recent_filings(cik, limit=2)
+        ver_task = _fetch_ver()
+
+        overview, dashboard, recent_filings_res, ver_res = await asyncio.gather(
+            overview_task, dashboard_task, recent_filings_task, ver_task
+        )
+
         company_name = overview.name
         ticker = overview.tickers[0] if overview.tickers else str(cik)
 
-        # 2. Get dashboard data
-        dashboard = await self.dashboard_service.get_dashboard(cik, periods=periods)
-        
-        # 3. Get filing diff (latest vs previous filing if available)
+        # 2. Get filing diff (latest vs previous filing if available)
         diff_data = None
-        filings = []
-        try:
-            recent_filings_res = await self.profile_service.get_recent_filings(cik, limit=2)
-            filings = recent_filings_res.filings
-            if len(filings) >= 2:
+        filings = recent_filings_res.filings
+        if len(filings) >= 2:
+            try:
                 from app.models.diff import FilingDiffRequest
                 diff_req = FilingDiffRequest(
                     older_accession_number=filings[1].accession_number,
                     newer_accession_number=filings[0].accession_number
                 )
                 diff_data = await self.diff_service.compare_filings(cik, diff_req)
-        except Exception as e:
-            logger.warning(f"Could not compute Filing Diff for CIK {cik} report: {e}")
+            except Exception as e:
+                logger.warning(f"Could not compute Filing Diff for CIK {cik} report: {e}")
 
-        # 3.1 Fetch Verification Summary
+        # 3. Format Verification Summary Text
         verification_summary_text = "No verification data available."
-        ver_res = None
-        try:
-            from app.services.verification_service import VerificationService
-            sec_client = getattr(self.profile_service, "sec_client", None) or getattr(self.dashboard_service, "sec_client", None)
-            if sec_client:
-                ver_service = VerificationService(sec_client=sec_client)
-                ver_res = await ver_service.verify_filings(cik)
+        if ver_res:
+            try:
                 passed = len(ver_res.equations_passed)
                 failed = len(ver_res.equations_failed)
                 details = [f"- Failed check: {eq.equation_title} on {eq.period_end} (expected {eq.expected_value}, reported {eq.reported_value})" for eq in ver_res.equations_failed]
                 verification_summary_text = f"Verified SEC equations: {passed} passed, {failed} failed.\n" + "\n".join(details)
-        except Exception as e:
-            logger.warning(f"Could not load verification for CIK {cik} report: {e}")
+            except Exception as e:
+                logger.warning(f"Could not format verification details: {e}")
 
-        # 3.2 Fetch Peer Comparison Highlights
+        # 4. Fetch Peer Comparison Highlights in parallel
         DEFAULT_PEERS = {
             320193: [789019, 1652044, 1045810],   # Apple: Microsoft, Alphabet, NVIDIA
             789019: [320193, 1652044, 1045810],   # Microsoft: Apple, Alphabet, NVIDIA
@@ -121,26 +149,31 @@ class AIResearchReportService:
             19617: [70858, 831001, 1053054]       # JPMorgan: BofA, Citi, Goldman
         }
 
-        peers_summary = []
         peer_ciks = DEFAULT_PEERS.get(int(cik) if isinstance(cik, (int, str)) and str(cik).isdigit() else cik, [])
-        for p_cik in peer_ciks[:3]:
+        
+        async def fetch_peer_summary(p_cik):
             try:
                 p_overview = await self.profile_service.get_overview(p_cik)
                 p_dash = await self.dashboard_service.get_dashboard(p_cik, periods=periods)
                 p_ticker = p_overview.tickers[0] if p_overview.tickers else str(p_cik)
                 p_metrics = {m.key: m.value for m in p_dash.metrics}
                 p_ratios = {r.key: r.value for r in p_dash.ratios}
-                peers_summary.append({
+                return {
                     "cik": p_cik,
                     "company_name": p_dash.company_name,
                     "ticker": p_ticker,
-                    "overall_health_score": p_dash.health_score.overall if hasattr(p_dash, "health_score") else None,
+                    "overall_health_score": p_dash.health_score.overall if hasattr(p_dash, "health_score") and p_dash.health_score else None,
                     "revenue": p_metrics.get("revenue"),
                     "net_income": p_metrics.get("net_income"),
                     "net_margin": p_ratios.get("net_margin")
-                })
+                }
             except Exception as e:
                 logger.warning(f"Could not load peer CIK {p_cik} for report: {e}")
+                return None
+
+        peer_tasks = [fetch_peer_summary(p_cik) for p_cik in peer_ciks[:3]]
+        peer_results = await asyncio.gather(*peer_tasks)
+        peers_summary = [r for r in peer_results if r is not None]
 
         # 3.3 Compile AI Insights & Health Score Summary
         ai_insights_summary = {

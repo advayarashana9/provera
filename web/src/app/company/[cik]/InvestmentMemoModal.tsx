@@ -370,9 +370,10 @@ ${memo.citations.map((c) => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
 
               <button
                 onClick={handleGenerate}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+                disabled={loading}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer disabled:bg-zinc-200 disabled:text-zinc-400"
               >
-                <span>Compile Investment Memo</span>
+                <span>{loading ? "Generating…" : "Compile Investment Memo"}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -381,10 +382,10 @@ ${memo.citations.map((c) => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
           {/* Loading Progress State */}
           {loading && (
             <div className="max-w-md mx-auto text-center py-16 space-y-6 animate-fadeIn">
-              <div className="w-10 h-10 border-4 border-zinc-950 border-t-transparent rounded-full animate-spin mx-auto animate-fadeIn"></div>
+              <div className="w-10 h-10 border-4 border-zinc-950 border-t-transparent rounded-full animate-spin mx-auto"></div>
               <div className="space-y-3">
-                <div className="text-sm font-bold text-zinc-955">Generating Memo...</div>
-                <div className="text-xs text-zinc-400 h-4 transition-all animate-pulse">
+                <div className="text-sm font-bold text-zinc-955">Generating investment memo…</div>
+                <div className="text-xs text-zinc-400 h-4 transition-all animate-pulse font-sans">
                   {STEPS[stepIdx]}
                 </div>
               </div>
@@ -405,24 +406,22 @@ ${memo.citations.map((c) => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
 
           {/* Error Alert Box */}
           {error && (
-            <div className="max-w-md mx-auto p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg flex flex-col gap-3 text-xs animate-fadeIn shadow-xs my-12">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <span className="font-bold block">Generation Failed</span>
-                  <p className="text-red-750 font-medium">{error}</p>
-                </div>
+            <div className="max-w-md mx-auto p-5 border border-red-200 rounded-xl bg-red-50 text-red-800 text-center space-y-4 shadow-xs my-12 animate-fadeIn">
+              <div className="flex items-center justify-center gap-2 font-bold text-red-900 text-sm">
+                <AlertTriangle className="w-5 h-5 text-red-700" />
+                <span>Unable to load SEC data.</span>
               </div>
-              <div className="flex gap-2">
+              <p className="text-xs leading-relaxed text-red-700 font-medium">Please try again in a few moments.</p>
+              <div className="flex items-center justify-center gap-3">
                 <button
                   onClick={handleGenerate}
-                  className="bg-red-800 text-white font-bold rounded px-3 py-1.5 hover:bg-red-900 transition-colors cursor-pointer text-[10px]"
+                  className="bg-red-800 text-white font-bold rounded px-4 py-2 hover:bg-red-900 transition-colors cursor-pointer text-xs"
                 >
-                  Retry
+                  Retry Generation
                 </button>
                 <button
                   onClick={onClose}
-                  className="bg-white border border-zinc-205 text-zinc-700 font-bold rounded px-3 py-1.5 hover:bg-zinc-100 transition-colors cursor-pointer text-[10px]"
+                  className="bg-white border border-zinc-200 text-zinc-700 font-bold rounded px-4 py-2 hover:bg-zinc-50 transition-colors cursor-pointer text-xs"
                 >
                   Close
                 </button>

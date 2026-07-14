@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import asyncio
 from typing import Optional, List, Dict, Any
 from google import genai
 from google.genai import types
@@ -38,41 +39,41 @@ class InvestmentMemoService:
         return self.client is not None
 
     async def generate_memo(self, cik: int, peers: List[int] = [], periods: int = 4) -> InvestmentMemo:
-        # 1. Fetch CIK profile
-        overview = await self.profile_service.get_overview(cik)
+        # 1. Fetch overview, dashboard, and recent filings in parallel
+        overview_task = self.profile_service.get_overview(cik)
+        dashboard_task = self.dashboard_service.get_dashboard(cik, periods=periods)
+        recent_filings_task = self.profile_service.get_recent_filings(cik, limit=2)
+
+        overview, dashboard, recent_filings_res = await asyncio.gather(
+            overview_task, dashboard_task, recent_filings_task
+        )
+
         company_name = overview.name
         ticker = overview.tickers[0] if overview.tickers else str(cik)
 
-        # 2. Get dashboard data
-        dashboard = await self.dashboard_service.get_dashboard(cik, periods=periods)
-
-        # 3. Get filing diff (latest vs previous)
+        # 2. Get filing diff (latest vs previous)
         diff_data = None
-        try:
-            recent_filings_res = await self.profile_service.get_recent_filings(cik, limit=2)
-            filings = recent_filings_res.filings
-            if len(filings) >= 2:
+        filings = recent_filings_res.filings
+        if len(filings) >= 2:
+            try:
                 from app.models.diff import FilingDiffRequest
                 diff_req = FilingDiffRequest(
                     older_accession_number=filings[1].accession_number,
                     newer_accession_number=filings[0].accession_number
                 )
                 diff_data = await self.diff_service.compare_filings(cik, diff_req)
-        except Exception as e:
-            logger.warning(f"Could not compute Filing Diff for CIK {cik} memo: {e}")
+            except Exception as e:
+                logger.warning(f"Could not compute Filing Diff for CIK {cik} memo: {e}")
 
-        # 4. Fetch Peer Comparison data
-        peers_summary = []
-        for p_cik in peers[:3]: # Cap at 3 peers
+        # 3. Fetch Peer Comparison data in parallel
+        async def fetch_peer_summary(p_cik):
             try:
                 p_overview = await self.profile_service.get_overview(p_cik)
                 p_dash = await self.dashboard_service.get_dashboard(p_cik, periods=periods)
-                
                 p_ticker = p_overview.tickers[0] if p_overview.tickers else str(p_cik)
                 p_metrics = {m.key: m.value for m in p_dash.metrics}
                 p_ratios = {r.key: r.value for r in p_dash.ratios}
-
-                peers_summary.append({
+                return {
                     "cik": p_cik,
                     "company_name": p_dash.company_name,
                     "ticker": p_ticker,
@@ -84,9 +85,14 @@ class InvestmentMemoService:
                     "operating_margin": p_ratios.get("operating_margin"),
                     "net_margin": p_ratios.get("net_margin"),
                     "return_on_equity": p_ratios.get("return_on_equity")
-                })
+                }
             except Exception as e:
                 logger.warning(f"Could not load peer CIK {p_cik} for memo benchmark: {e}")
+                return None
+
+        peer_tasks = [fetch_peer_summary(p_cik) for p_cik in peers[:3]]
+        peer_results = await asyncio.gather(*peer_tasks)
+        peers_summary = [r for r in peer_results if r is not None]
 
         # 5. Compile deterministic citations
         citations = []

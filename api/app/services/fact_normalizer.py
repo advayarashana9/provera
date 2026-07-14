@@ -1,7 +1,11 @@
 from typing import List, Optional
 import httpx
+import time
+import logging
 from app.services.sec_client import SECClient
 from app.models.financial_fact import NormalizedFinancialFact, CompanyFactsResponse, ConceptFactsResponse
+
+logger = logging.getLogger(__name__)
 
 class FactNormalizerService:
     def __init__(self, sec_client: Optional[SECClient] = None):
@@ -23,6 +27,7 @@ class FactNormalizerService:
         """
         limit = max(1, min(5000, limit))
         raw_data = await self.sec_client.get_company_facts(cik)
+        start_time = time.time()
         company_name = raw_data.get("entityName", "")
         raw_facts = raw_data.get("facts", {})
 
@@ -115,6 +120,9 @@ class FactNormalizerService:
         facts.sort(key=lambda f: f.filed_date or "", reverse=True)
         results = facts[:limit]
 
+        duration = time.time() - start_time
+        logger.info(f"[TIMING] Normalization of company facts for CIK {cik} took {duration:.4f}s")
+
         return CompanyFactsResponse(
             cik=int(cik),
             company_name=str(company_name),
@@ -135,6 +143,7 @@ class FactNormalizerService:
         """
         limit = max(1, min(5000, limit))
         raw_data = await self.sec_client.get_company_facts(cik)
+        start_time = time.time()
         company_name = raw_data.get("entityName", "")
         raw_facts = raw_data.get("facts", {})
 
@@ -226,6 +235,9 @@ class FactNormalizerService:
         # Sort facts: newest filed dates first.
         facts.sort(key=lambda f: f.filed_date or "", reverse=True)
         results = facts[:limit]
+
+        duration = time.time() - start_time
+        logger.info(f"[TIMING] Normalization of concept facts for CIK {cik} took {duration:.4f}s")
 
         return ConceptFactsResponse(
             cik=int(cik),

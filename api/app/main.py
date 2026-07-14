@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.routes.companies import router as companies_router
 
@@ -7,6 +8,11 @@ app = FastAPI(
     title="FilingLens API",
     description="Financial verification and SEC filing analysis API.",
     version="0.1.0",
+)
+
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1000
 )
 
 app.add_middleware(

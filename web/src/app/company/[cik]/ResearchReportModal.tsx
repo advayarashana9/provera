@@ -26,12 +26,10 @@ interface Props {
 }
 
 const STEPS = [
-  "Fetching official SEC EDGAR disclosures...",
-  "Retrieving verified financial metrics and balances...",
-  "Running sequential quarter-over-quarter diffing...",
-  "Calculating profitability and solvency ratios...",
-  "Synthesizing institutional analyst draft report...",
-  "Applying source checks and citations trace..."
+  "Fetching filing data...",
+  "Collecting verified metrics...",
+  "Generating analysis...",
+  "Building report..."
 ];
 
 export default function ResearchReportModal({ cik, companyName, ticker, isOpen, onClose }: Props) {
@@ -356,9 +354,10 @@ ${report.citations.map(c => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
 
               <button
                 onClick={handleGenerate}
-                className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold px-6 py-3 rounded-lg text-sm transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 cursor-pointer"
+                disabled={loading}
+                className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold px-6 py-3 rounded-lg text-sm transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 cursor-pointer disabled:bg-zinc-105 disabled:text-zinc-400"
               >
-                <span>Generate Research Report</span>
+                <span>{loading ? "Generating…" : "Generate Research Report"}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -366,7 +365,7 @@ ${report.citations.map(c => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
 
           {/* Loading step tracker */}
           {loading && (
-            <div className="max-w-md mx-auto py-16 space-y-8 animate-fadeIn">
+            <div className="max-w-md mx-auto py-12 space-y-8 animate-fadeIn">
               <div className="text-center space-y-2">
                 <div className="relative h-10 w-10 mx-auto mb-4">
                   <div className="absolute inset-0 rounded-full border-2 border-zinc-200"></div>
@@ -378,13 +377,13 @@ ${report.citations.map(c => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
 
               <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 space-y-4 text-sm shadow-inner">
                 {[
-                  { label: "Reading SEC filings", startStep: 0 },
-                  { label: "Verifying financial metrics", startStep: 1 },
-                  { label: "Calculating deterministic ratios", startStep: 3 },
-                  { label: "Building executive summary & citation links", startStep: 5 },
+                  { label: "Fetching SEC filing…", active: stepIdx >= 0 && stepIdx < 2, done: stepIdx >= 2 },
+                  { label: "Extracting financial facts…", active: stepIdx >= 2 && stepIdx < 4, done: stepIdx >= 4 },
+                  { label: "Generating analysis…", active: stepIdx === 4, done: stepIdx >= 5 },
+                  { label: "Building report…", active: stepIdx === 5, done: !loading && report !== null },
                 ].map((item, idx) => {
-                  const isDone = stepIdx > item.startStep;
-                  const isActive = stepIdx === item.startStep;
+                  const isDone = item.done;
+                  const isActive = item.active && loading;
                   return (
                     <div key={idx} className="flex items-center justify-between text-xs font-sans">
                       <div className="flex items-center gap-3">
@@ -420,6 +419,25 @@ ${report.citations.map(c => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
                   {STEPS[stepIdx]}
                 </div>
               </div>
+
+              {/* Skeleton paragraphs below loader */}
+              <div className="space-y-6 pt-6 border-t border-zinc-150/80 animate-pulse">
+                <div className="space-y-2">
+                  <div className="h-4 w-1/4 shimmer-bg rounded"></div>
+                  <div className="space-y-1.5">
+                    <div className="h-3.5 w-full shimmer-bg rounded"></div>
+                    <div className="h-3.5 w-5/6 shimmer-bg rounded"></div>
+                    <div className="h-3.5 w-4/5 shimmer-bg rounded"></div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 w-1/3 shimmer-bg rounded"></div>
+                  <div className="space-y-1.5">
+                    <div className="h-3.5 w-full shimmer-bg rounded"></div>
+                    <div className="h-3.5 w-11/12 shimmer-bg rounded"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -428,9 +446,9 @@ ${report.citations.map(c => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
             <div className="p-6 border border-red-200 rounded-xl bg-red-50 text-red-800 text-center space-y-4 max-w-lg mx-auto my-12 shadow-xs animate-fadeIn">
               <div className="flex items-center justify-center gap-2 font-bold text-red-900 text-sm">
                 <AlertTriangle className="w-5 h-5 text-red-700" />
-                <span>Report Generation Failed</span>
+                <span>Unable to load SEC data.</span>
               </div>
-              <p className="text-xs leading-relaxed text-red-700">{error}</p>
+              <p className="text-xs leading-relaxed text-red-700 font-medium">Please try again in a few moments.</p>
               <div className="flex items-center justify-center gap-3">
                 <button
                   onClick={handleGenerate}
