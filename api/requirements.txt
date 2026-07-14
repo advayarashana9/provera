@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+pandas
+pydantic
+pytest
+pytest-asyncio
+google-genai
+reportlab

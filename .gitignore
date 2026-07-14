@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+api/.env
+web/.env.local
+
+# Python
+api/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+
+# Generated files
+*.pdf
