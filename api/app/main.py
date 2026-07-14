@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.routes.companies import router as companies_router
 
 app = FastAPI(
     title="FilingLens API",
     description="Financial verification and SEC filing analysis API.",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 app.add_middleware(
@@ -22,15 +23,18 @@ app.add_middleware(
 
 app.include_router(companies_router, prefix="/companies")
 
+
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
 
+
 @app.get("/ai/status")
 async def get_ai_status():
     from app.services.explanation_service import ExplanationService
+
     service = ExplanationService()
     return {
         "configured": service.is_available(),
-        "provider": "Google Gemini"
+        "provider": "Google Gemini",
     }
