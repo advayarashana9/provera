@@ -1,3 +1,4 @@
++584
 export interface CompanySearchResult {
   cik: number;
   ticker: string;
@@ -587,6 +588,9 @@ export interface ClaimAuditResult {
   confidence: "high" | "medium" | "low";
   short_explanation: string;
   is_outdated?: boolean;
+  resolution_stage_details?: string[];
+  confidence_score?: number;
+  score_breakdown?: Record<string, number>;
   evidence: ClaimEvidence[];
   calculations: ClaimCalculation[];
   limitations: string[];
