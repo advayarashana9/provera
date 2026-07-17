@@ -654,7 +654,7 @@ INSTRUCTIONS FOR EACH SECTION:
             rev_trend = f" This represents a sequential {dir_str} of {abs(pct):.2f}% from the prior period."
 
         exec_p1 = (
-            f"FilingLens Institutional Research Report for {company_name} (CIK: {cik}, Ticker: {ticker}). "
+            f"Provera Institutional Research Report for {company_name} (CIK: {cik}, Ticker: {ticker}). "
             f"For the latest filing period ending {dashboard.latest_period_end} ({dashboard.latest_form}), "
             f"the company reported total revenue of {rev} and net income of {ni}.{rev_trend} "
             f"The overall financial health is supported by a solid cash position of {cash} and total assets of {assets}."

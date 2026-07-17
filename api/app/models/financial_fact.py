@@ -18,6 +18,9 @@ class NormalizedFinancialFact(BaseModel):
     fiscal_year: Optional[int] = None
     fiscal_period: Optional[str] = None
     accession_number: Optional[str] = None
+    raw_value: Optional[float] = None
+    normalized_value: Optional[float] = None
+    formatted_value: Optional[str] = None
     frame: Optional[str] = None
     source_url: Optional[str] = None
 

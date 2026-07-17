@@ -633,7 +633,9 @@ async def test_key_takeaway_generation_and_gemini_fallback():
 
 def test_no_literal_nearr_in_frontend():
     import os
-    path = "/Users/advayarashanapalli/filinglens/web/src/app/company/[cik]/FilingDiff.tsx"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    workspace_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+    path = os.path.join(workspace_root, "web/src/app/company/[cik]/FilingDiff.tsx")
     assert os.path.exists(path)
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()

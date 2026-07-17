@@ -7,6 +7,46 @@ from app.models.financial_fact import NormalizedFinancialFact, CompanyFactsRespo
 
 logger = logging.getLogger(__name__)
 
+def normalize_value(val: Optional[float], unit: Optional[str]) -> Optional[float]:
+    """
+    Scale the claimed value to absolute numbers based on scale keywords.
+    """
+    if val is None:
+        return None
+    if not unit:
+        return val
+    u = unit.strip().lower()
+    if u in ["billion", "billions", "b"]:
+        return val * 1_000_000_000
+    if u in ["million", "millions", "m"]:
+        return val * 1_000_000
+    if u in ["thousand", "thousands", "k"]:
+        return val * 1_000
+    return val
+
+def format_value_with_unit(val: float, unit_str: Optional[str]) -> str:
+    """
+    Formats a numeric value into a human-readable financial representation.
+    """
+    if val is None:
+        return "N/A"
+    
+    if unit_str and unit_str.strip().lower() in ["percent", "%"]:
+        return f"{val:.2f}%"
+        
+    abs_val = abs(val)
+    sign = "-" if val < 0 else ""
+    
+    if abs_val >= 1_000_000_000:
+        return f"{sign}${abs_val / 1_000_000_000:.3f} billion"
+    elif abs_val >= 1_000_000:
+        return f"{sign}${abs_val / 1_000_000:.3f} million"
+    elif abs_val >= 1_000:
+        return f"{sign}${abs_val / 1_000:.3f} thousand"
+    else:
+        return f"{sign}${val:,.2f}"
+
+
 class FactNormalizerService:
     def __init__(self, sec_client: Optional[SECClient] = None):
         """
@@ -111,6 +151,9 @@ class FactNormalizerService:
                             fiscal_year=fact_dict.get("fy"),
                             fiscal_period=fact_dict.get("fp"),
                             accession_number=accn_str,
+                            raw_value=val,
+                            normalized_value=normalize_value(val, unit_name),
+                            formatted_value=format_value_with_unit(val, unit_name),
                             frame=fact_dict.get("frame"),
                             source_url=source_url
                         )
@@ -227,6 +270,9 @@ class FactNormalizerService:
                         fiscal_year=fact_dict.get("fy"),
                         fiscal_period=fact_dict.get("fp"),
                         accession_number=accn_str,
+                        raw_value=val,
+                        normalized_value=normalize_value(val, unit_name),
+                        formatted_value=format_value_with_unit(val, unit_name),
                         frame=fact_dict.get("frame"),
                         source_url=source_url
                     )

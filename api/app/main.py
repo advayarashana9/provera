@@ -3,9 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.routes.companies import router as companies_router
+from app.routes.audits import router as audits_router
 
 app = FastAPI(
-    title="FilingLens API",
+    title="Provera API",
     description="Financial verification and SEC filing analysis API.",
     version="0.1.0",
 )
@@ -20,7 +21,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://filinglens-sandy.vercel.app",
+        "https://provera-sandy.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -28,6 +29,8 @@ app.add_middleware(
 )
 
 app.include_router(companies_router, prefix="/companies")
+app.include_router(audits_router)
+
 
 
 @app.get("/health")

@@ -530,7 +530,7 @@ class ChatService:
 
     async def ask_question(self, cik: int, question: str) -> ChatResponse:
         """
-        Grounded Ask FilingLens assistant.
+        Grounded Ask Provera assistant.
         """
         # Fetch and normalize all company facts (limit to 2000 to keep it fast)
         facts_res = await self.fact_normalizer.get_company_facts(cik, limit=2000)
@@ -639,7 +639,7 @@ class ChatService:
             )
 
         # Build prompt
-        prompt = f"""You are "Ask FilingLens", an AI financial analyst assistant built to answer user questions about a company's SEC filings.
+        prompt = f"""You are "Ask Provera", an AI financial analyst assistant built to answer user questions about a company's SEC filings.
 You are helping a professional institutional investor analyze {company_name} (CIK: {cik}).
 
 User Question: {question}
@@ -752,7 +752,7 @@ CRITICAL INSTRUCTIONS:
             else:
                 gemini_res = GeminiChatResponse.model_validate_json(resp_text)
         except Exception as e:
-            logger.error(f"Gemini API call or JSON parsing failed for Ask FilingLens CIK {cik}: {e}")
+            logger.error(f"Gemini API call or JSON parsing failed for Ask Provera CIK {cik}: {e}")
             if 'response' in locals() and hasattr(response, 'text') and response.text:
                 raw_text = response.text.strip()
                 is_insufficient = "insufficient evidence" in raw_text.lower()
@@ -811,7 +811,7 @@ CRITICAL INSTRUCTIONS:
         is_narrative = gemini_res.category in ["Risk Factors", "MD&A"] or any(word in question.lower() for word in ["risk", "mda", "note", "disclosure", "narrative", "text", "factor", "explain"])
         if is_narrative:
             if "parsing the filing text" not in gemini_res.answer.lower():
-                meta_info.append("*Note: Answering questions regarding narrative disclosures (e.g. MD&A, Risk Factors, Notes) requires parsing the full text of the filing, whereas Ask FilingLens is currently optimized for structured XBRL facts.*")
+                meta_info.append("*Note: Answering questions regarding narrative disclosures (e.g. MD&A, Risk Factors, Notes) requires parsing the full text of the filing, whereas Ask Provera is currently optimized for structured XBRL facts.*")
             
         final_parts.append("\n".join(meta_info))
 

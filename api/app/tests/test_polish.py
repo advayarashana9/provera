@@ -4,8 +4,10 @@ import pytest
 from app.services.diff_service import FilingDiffService
 
 def test_no_hardcoded_2023_presets():
-    # Read AskFilingLens.tsx to verify that no preset prompts contain "2023"
-    filepath = "/Users/advayarashanapalli/filinglens/web/src/app/company/[cik]/AskFilingLens.tsx"
+    # Read AskProvera.tsx to verify that no preset prompts contain "2023"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    workspace_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+    filepath = os.path.join(workspace_root, "web/src/app/company/[cik]/AskProvera.tsx")
     assert os.path.exists(filepath), f"{filepath} does not exist"
     
     with open(filepath, "r") as f:
@@ -13,7 +15,7 @@ def test_no_hardcoded_2023_presets():
         
     # Locate presets array
     presets_match = re.search(r"const presets = \[(.*?)\];", content, re.DOTALL)
-    assert presets_match is not None, "Could not find presets array in AskFilingLens.tsx"
+    assert presets_match is not None, "Could not find presets array in AskProvera.tsx"
     
     presets_block = presets_match.group(1)
     assert "2023" not in presets_block, f"Found hardcoded 2023 in suggested presets block:\n{presets_block}"
