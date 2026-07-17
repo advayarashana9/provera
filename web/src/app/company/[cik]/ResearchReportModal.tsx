@@ -372,7 +372,7 @@ ${report.citations.map(c => `[${c.id}] ${c.label || c.concept}: ${c.value} ${c.u
                   <div className="absolute inset-0 rounded-full border-2 border-t-zinc-900 animate-spin"></div>
                 </div>
                 <h4 className="font-bold text-base text-zinc-900">Generating Institutional Report...</h4>
-                <p className="text-xs text-zinc-400">Please wait while FilingLens processes live SEC EDGAR data.</p>
+                <p className="text-xs text-zinc-400">Please wait while Provera processes live SEC EDGAR data.</p>
               </div>
 
               <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 space-y-4 text-sm shadow-inner">

@@ -210,7 +210,7 @@ export default function FinancialDashboard({ cik }: Props) {
   }, [data, error]);
 
   const getProgressLabel = () => {
-    if (seconds < 1.0) return "Connecting to FilingLens";
+    if (seconds < 1.0) return "Connecting to Provera";
     if (seconds < 2.5) return "Fetching SEC filing data";
     if (seconds < 4.0) return "Normalizing financial facts";
     if (seconds < 5.0) return "Calculating metrics and ratios";

@@ -536,5 +536,88 @@ export async function downloadInvestmentMemoPdf(
   return await res.blob();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Claim Auditing Workflow Models & APIs
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AuditRequest {
+  text: string;
+  company_name?: string | null;
+  ticker?: string | null;
+  cik?: string | null;
+}
+
+export interface ExtractedClaim {
+  original_text: string;
+  company_name?: string | null;
+  ticker?: string | null;
+  cik?: string | null;
+  claim_type: string;
+  metric: string;
+  claimed_value?: number | null;
+  unit?: string | null;
+  direction?: string | null;
+  start_period?: string | null;
+  end_period?: string | null;
+  comparison_type?: string | null;
+}
+
+export interface ClaimEvidence {
+  concept: string;
+  value: number;
+  unit: string;
+  end_date: string;
+  start_date?: string | null;
+  form?: string | null;
+  filed_date?: string | null;
+  accession_number?: string | null;
+  source_url?: string | null;
+  explanation?: string | null;
+}
+
+export interface ClaimCalculation {
+  formula: string;
+  inputs: Record<string, number>;
+  result: number;
+}
+
+export interface ClaimAuditResult {
+  claim: ExtractedClaim;
+  verdict: "supported" | "contradicted" | "partially_supported" | "outdated" | "insufficient_evidence" | "opinion" | "forward_looking" | "requires_human_review";
+  confidence: "high" | "medium" | "low";
+  short_explanation: string;
+  is_outdated?: boolean;
+  evidence: ClaimEvidence[];
+  calculations: ClaimCalculation[];
+  limitations: string[];
+  source_urls: string[];
+}
+
+export interface DocumentAuditResponse {
+  claims: ClaimAuditResult[];
+  summary: Record<string, number>;
+}
+
+export async function auditReport(text: string, cik?: string): Promise<DocumentAuditResponse> {
+  return fetchFromApi<DocumentAuditResponse>("/audits", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text, cik }),
+  });
+}
+
+export async function verifyClaim(claim: ExtractedClaim): Promise<ClaimAuditResult> {
+  return fetchFromApi<ClaimAuditResult>("/claims/verify", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(claim),
+  });
+}
+
+
 
 

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getCompanyOverview } from "@/lib/api";
 import { formatCIK, formatFiscalYearEnd } from "@/lib/format";
 import HeaderSearch from "./HeaderSearch";
-import AskFilingLens from "./AskFilingLens";
+import AskProvera from "./AskProvera";
 import FilingDiff from "./FilingDiff";
 import FinancialDashboard from "./FinancialDashboard";
 import PeerComparison from "./PeerComparison";
@@ -24,7 +24,7 @@ const Logo = () => (
         <path d="M9 15l2 2 4-4" />
       </svg>
     </div>
-    <span className="font-semibold text-zinc-955 text-sm tracking-tight font-sans">FilingLens</span>
+    <span className="font-semibold text-zinc-955 text-sm tracking-tight font-sans">Provera</span>
   </div>
 );
 
@@ -104,9 +104,9 @@ export default async function CompanyPage({ params }: PageProps) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-fade-in-up">
-          {/* Ask FilingLens Assistant (Mobile: stacks first below dashboard, Desktop: sticky right column) */}
-          <div className="lg:col-span-1 lg:order-2 lg:sticky lg:top-24" id="ask-filinglens">
-            <AskFilingLens key={cik} cik={cik} companyName={overview.name} />
+          {/* Ask Provera Assistant (Mobile: stacks first below dashboard, Desktop: sticky right column) */}
+          <div className="lg:col-span-1 lg:order-2 lg:sticky lg:top-24" id="ask-provera">
+            <AskProvera key={cik} cik={cik} companyName={overview.name} />
           </div>
 
           {/* Left Column (Mobile: stacks second, Desktop: spans 2 columns on left) */}

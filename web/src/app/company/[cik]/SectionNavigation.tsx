@@ -215,7 +215,7 @@ export default function SectionNavigation() {
   };
 
   const handleAskClick = () => {
-    const chatContainer = document.getElementById("ask-filinglens-container");
+    const chatContainer = document.getElementById("ask-provera-container");
     if (chatContainer) {
       const headerEl = document.querySelector("header");
       const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 0;
@@ -275,11 +275,11 @@ export default function SectionNavigation() {
         {/* Dedicated Chat Action button */}
         <button
           onClick={handleAskClick}
-          aria-label="Focus Ask FilingLens assistant chat input"
+          aria-label="Focus Ask Provera assistant chat input"
           className="flex-shrink-0 h-8 px-3 border border-blue-200 text-blue-800 bg-blue-50/30 hover:bg-blue-50 rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
         >
           <MessageSquare className="w-3.5 h-3.5" />
-          <span>Ask FilingLens</span>
+          <span>Ask Provera</span>
         </button>
       </div>
     </div>

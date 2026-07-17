@@ -10,7 +10,7 @@ interface ErrorProps {
 
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
-    console.error("FilingLens profile retrieval failed:", error);
+    console.error("Provera profile retrieval failed:", error);
   }, [error]);
 
   return (
@@ -18,7 +18,7 @@ export default function Error({ error, reset }: ErrorProps) {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link href="/" className="font-semibold text-lg tracking-tight text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 rounded">
-            FilingLens
+            Provera
           </Link>
         </div>
       </header>

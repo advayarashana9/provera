@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Deep navy background square with rounded corners -->
+  <rect width="32" height="32" rx="7" fill="#1e3a5f"/>
+  <!-- Geometric "P" lettermark: vertical stem + curved bowl -->
+  <!-- Vertical stem -->
+  <rect x="10" y="8" width="3" height="16" rx="1.5" fill="#ffffff"/>
+  <!-- Bowl top bar -->
+  <rect x="10" y="8" width="10" height="3" rx="1.5" fill="#ffffff"/>
+  <!-- Bowl bottom bar -->
+  <rect x="10" y="15" width="9" height="2.5" rx="1.25" fill="#ffffff"/>
+  <!-- Bowl right curve connector -->
+  <rect x="17" y="8" width="3" height="9.5" rx="1.5" fill="#ffffff"/>
+  <!-- Verification dot accent -->
+  <circle cx="22.5" cy="22.5" r="2.5" fill="#3b82f6"/>
+  <path d="M21.3 22.5 L22.2 23.4 L23.8 21.6" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

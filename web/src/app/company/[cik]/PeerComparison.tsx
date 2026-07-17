@@ -109,7 +109,7 @@ export default function PeerComparison({ cik, companyName }: Props) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(`filinglens_compare_peers_${cik}`);
+      const saved = localStorage.getItem(`provera_compare_peers_${cik}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         setTimeout(() => {
@@ -133,7 +133,7 @@ export default function PeerComparison({ cik, companyName }: Props) {
   useEffect(() => {
     if (!isLoaded) return;
     try {
-      localStorage.setItem(`filinglens_compare_peers_${cik}`, JSON.stringify(peers));
+      localStorage.setItem(`provera_compare_peers_${cik}`, JSON.stringify(peers));
     } catch (e) {
       console.error(e);
     }
@@ -175,7 +175,7 @@ export default function PeerComparison({ cik, companyName }: Props) {
   }, [loading]);
 
   const getProgressMessage = (seconds: number): string => {
-    if (seconds < 3) return "Connecting to FilingLens";
+    if (seconds < 3) return "Connecting to Provera";
     if (seconds < 7) return "Fetching SEC filing data";
     if (seconds < 12) return "Calculating comparable metrics";
     return "Still working on a large SEC dataset";

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { askQuestion, ChatCitation, ChatComparison } from "@/lib/api";
 import { formatPercent, formatDate } from "@/lib/format";
 
-interface AskFilingLensProps {
+interface AskProveraProps {
   cik: number;
   companyName: string;
 }
@@ -17,11 +17,11 @@ interface Message {
   insufficientEvidence?: boolean;
 }
 
-export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) {
+export default function AskProvera({ cik, companyName }: AskProveraProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Hello! I answer questions using source-linked SEC filing facts and deterministic calculations. Try asking about cash reserves, revenue, operating expenses, or assets!`,
+      content: `This assistant answers questions using source-linked SEC EDGAR filing facts and deterministic calculations. Ask about revenue, operating expenses, cash flow, balance sheet items, or filing comparisons.`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -61,7 +61,7 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
       const customEvent = e as CustomEvent<{ query: string }>;
       setInput(customEvent.detail.query);
       
-      const chatElement = document.getElementById("ask-filinglens-container");
+      const chatElement = document.getElementById("ask-provera-container");
       if (chatElement) {
         chatElement.scrollIntoView({ behavior: "smooth" });
         const inputElement = chatElement.querySelector("input");
@@ -280,17 +280,17 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
   ];
 
   return (
-    <div id="ask-filinglens-container" className="flex flex-col h-[650px] border border-zinc-200 bg-white rounded-xl shadow-sm overflow-hidden font-sans">
+    <div id="ask-provera-container" className="flex flex-col h-[650px] border border-zinc-200 bg-white rounded-xl shadow-sm overflow-hidden font-sans">
       {/* Header */}
       <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-blue-800 animate-pulse"></div>
           <div>
             <h3 className="text-sm font-semibold tracking-tight text-zinc-900 flex items-center gap-1.5 font-serif">
-              Ask FilingLens
+              Provera Research Assistant
             </h3>
             <p className="text-[10px] text-zinc-500 font-medium font-sans">
-              AI assistant grounded in SEC XBRL filing facts
+              Grounded in primary-source SEC EDGAR facts
             </p>
           </div>
         </div>
@@ -461,7 +461,7 @@ export default function AskFilingLens({ cik, companyName }: AskFilingLensProps) 
                 <span className="h-1.5 w-1.5 bg-blue-800 rounded-full animate-bounce delay-100 shrink-0"></span>
                 <span className="h-1.5 w-1.5 bg-blue-800 rounded-full animate-bounce delay-200 shrink-0"></span>
                 <span className="text-xs font-semibold text-zinc-500">
-                  FilingLens is analyzing the filing…
+                  Retrieving SEC evidence…
                 </span>
               </div>
               {loadingSeconds >= 15 ? (

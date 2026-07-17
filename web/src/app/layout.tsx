@@ -13,11 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FilingLens — Verified SEC Filing Intelligence",
-  description: "Analyze, verify, compare, and explain SEC filings using deterministic financial checks and source-grounded AI.",
+  title: "Provera — Financial Claim Verification",
+  description: "Verify financial claims against primary-source SEC EDGAR disclosures. Evidence-backed, explainable, and deterministic.",
   openGraph: {
-    title: "FilingLens — Verified SEC Filing Intelligence",
-    description: "Analyze, verify, compare, and explain SEC filings using deterministic financial checks and source-grounded AI.",
+    title: "Provera — Financial Claim Verification",
+    description: "Verify financial claims against primary-source SEC EDGAR disclosures. Evidence-backed, explainable, and deterministic.",
     type: "website",
   }
 };

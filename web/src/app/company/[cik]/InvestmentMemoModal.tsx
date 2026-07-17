@@ -70,7 +70,7 @@ export default function InvestmentMemoModal({ cik, companyName, ticker, isOpen, 
   useEffect(() => {
     if (isOpen) {
       try {
-        const stored = localStorage.getItem(`filinglens_compare_peers_${cik}`);
+        const stored = localStorage.getItem(`provera_compare_peers_${cik}`);
         if (stored) {
           interface PeerItemLocalStorage {
             cik: number;
