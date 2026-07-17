@@ -22,6 +22,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "https://provera-sandy.vercel.app",
+        "https://provera-e2cv3xcyc-advayarashana9s-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
